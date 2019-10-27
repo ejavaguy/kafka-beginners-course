@@ -31,7 +31,9 @@ public class TwitterProducer {
         Client client = createTwitterClient(msgQueue);
         client.connect();
 
-        //Runtime.getRuntime().addShutdownHook();
+        Runtime.getRuntime().addShutdownHook(new Thread(()->{
+            client.stop();
+        }));
 
         //create kafka producer
         try (KafkaProducer<String, String> producer=createKafkaProducer()) {
@@ -65,6 +67,17 @@ public class TwitterProducer {
         props.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         props.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
 
+        //create safe producer
+        props.setProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, Boolean.TRUE.toString());
+        props.setProperty(ProducerConfig.ACKS_CONFIG, "all");
+        props.setProperty(ProducerConfig.RETRIES_CONFIG, Integer.toString(Integer.MAX_VALUE));
+        props.setProperty(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "5");
+
+        //high throughput
+        props.setProperty(ProducerConfig.COMPRESSION_TYPE_CONFIG,"snappy");
+        props.setProperty(ProducerConfig.LINGER_MS_CONFIG, "20");
+        props.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, Integer.toString(32*1024));
+
         KafkaProducer<String, String> producer = new KafkaProducer<String, String>(props);
         return producer;
     }
@@ -84,7 +97,7 @@ public class TwitterProducer {
         Hosts hosebirdHosts = new HttpHosts(Constants.STREAM_HOST);
         StatusesFilterEndpoint hosebirdEndpoint = new StatusesFilterEndpoint();
         // Optional: set up some followings and track terms
-        List<String> terms = Lists.newArrayList("bitcoin");
+        List<String> terms = Lists.newArrayList("politics", "impeach");
         hosebirdEndpoint.trackTerms(terms);
 
         // These secrets should be read from a config file
