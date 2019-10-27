@@ -70,6 +70,8 @@ public class ElasticSearchConsumer {
         props.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         props.setProperty(ConsumerConfig.GROUP_ID_CONFIG, groupdId);
         props.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,"earliest");
+        props.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, Boolean.FALSE.toString());
+        props.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, Integer.toString(10));
 
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
         consumer.subscribe(Arrays.asList(topics));
@@ -82,6 +84,8 @@ public class ElasticSearchConsumer {
 
             while (true) {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+
+                log.info("Received {} records", records.count());
                 for (ConsumerRecord<String, String> record: records) {
                     log.info("Key: {}, Value: {}, Partition: {}, Offset: {}",
                             record.key(), record.value(), record.partition(), record.offset());
@@ -101,12 +105,19 @@ public class ElasticSearchConsumer {
                     IndexResponse indexResponse = client.index(indexRequest, RequestOptions.DEFAULT);
                     log.info("id={}", indexResponse.getId());
                     try {
-                        Thread.sleep(1000);
+                        Thread.sleep(10);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
                 }
-            }
+
+                log.info("Committing offsets");
+                consumer.commitSync();
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }            }
         }
 
     }
